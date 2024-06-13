@@ -7,6 +7,7 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import java.time.Duration
@@ -28,14 +29,26 @@ fun Application.configureSockets() {
             close(CloseReason(CloseReason.Codes.NORMAL, "All done"))
         }
 
-        webSocket("/tasks/tracked") {
+        webSocket("/wsClient/tasks") {
             webSocketSessions.add(this)
             sendAllTasks()
 
             while (true) {
-                val newTask = receiveDeserialized<Task>()
-                TaskRepository.add(newTask)
-                webSocketSessions.forEach { it.sendSerialized(newTask) }
+                try {
+                    val newTask = receiveDeserialized<Task>()
+                    TaskRepository.add(newTask)
+                    webSocketSessions.forEach { it.sendSerialized(newTask) }
+                } catch (ex: ClosedReceiveChannelException) {
+                    close(CloseReason(CloseReason.Codes.GOING_AWAY, ex.localizedMessage))
+                    webSocketSessions.remove(this)
+                } catch (ex: Exception) {
+                    close(CloseReason(CloseReason.Codes.INTERNAL_ERROR, ex.localizedMessage))
+                    webSocketSessions.remove(this)
+                } finally {
+                    if (webSocketSessions.isEmpty()) {
+                        break
+                    }
+                }
             }
         }
     }

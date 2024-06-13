@@ -43,7 +43,7 @@
     let socket;
 
     function setupSocket() {
-        serverURL = 'ws://127.0.0.1:8080/tasks/tracked';
+        serverURL = 'ws://127.0.0.1:8080/wsClient/tasks';
         socket = new WebSocket(serverURL);
 
         socket.onopen = logOpenToConsole;
